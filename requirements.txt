@@ -1,0 +1,19 @@
+# GridMind V2 — Requirements
+
+# LangGraph — multi-agent graph orchestration
+langgraph>=0.2.0
+
+# LangChain core — required by LangGraph internals
+langchain-core>=0.2.0
+
+# FastAPI — REST API server
+fastapi>=0.110.0
+
+# Uvicorn — ASGI server to run FastAPI
+uvicorn>=0.29.0
+
+# Pydantic — request/response validation (bundled with FastAPI)
+pydantic>=2.0.0
+
+# SQLite is stdlib — no package needed
+# Gemini and Tavily are called via stdlib urllib — no SDK needed
