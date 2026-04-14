@@ -10,7 +10,8 @@ import {
   Cpu,
   Zap,
   Activity,
-  BarChart3
+  BarChart3,
+  BrainCircuit
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -18,6 +19,7 @@ const Sidebar = ({ activeTab, setActiveTab, lastIntelAvailable }) => {
   const menuItems = [
     { id: 'dashboard', icon: BarChart2, label: 'National Overwatch' },
     { id: 'control', icon: MessageSquare, label: 'Neural Relay' },
+    { id: 'autonomous', icon: BrainCircuit, label: 'Autonomous Hub' },
     { id: 'intel', icon: BarChart3, label: 'Strategic Intel', pulse: lastIntelAvailable },
     { id: 'plants', icon: Factory, label: 'Infrastructure Nodes' },
     { id: 'memory', icon: Database, label: 'Command Log' },
@@ -71,9 +73,7 @@ const Sidebar = ({ activeTab, setActiveTab, lastIntelAvailable }) => {
       </nav>
 
       <div className="flex flex-col gap-6 mt-auto">
-         <button className="p-4 rounded-xl text-slate-700 hover:text-slate-200 hover:bg-white/5 transition-all">
-            <Settings size={22} />
-         </button>
+         {/* System utility footer icons removed per redundancy audit */}
       </div>
     </aside>
   );

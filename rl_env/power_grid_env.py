@@ -95,6 +95,33 @@ class PowerGridEnv(gym.Env):
             "Check all plants, health, and transmission lines. Make optimal decisions."
         )
 
+        # Dynamic Grid Perturbation: Simulate real-time sensor fluctuation before analysis
+        try:
+            from database.db_setup import get_connection
+            import random
+            conn = get_connection()
+            # Fetch current values to apply clipped noise
+            row = conn.execute("SELECT plant_id, vibration_index, temperature_celsius, current_capacity_percent FROM plant_health").fetchall()
+            
+            for r in row:
+                v_new = max(0.0, min(1.0, r[1] + (random.random() - 0.5) * 0.1))
+                t_new = max(40.0, min(110.0, r[2] + (random.random() - 0.5) * 5.0))
+                c_new = max(10.0, min(100.0, r[3] + (random.random() - 0.5) * 8.0))
+                
+                conn.execute("""
+                    UPDATE plant_health 
+                    SET vibration_index = ?,
+                        temperature_celsius = ?,
+                        current_capacity_percent = ?
+                    WHERE plant_id = ?
+                """, (v_new, t_new, c_new, r[0]))
+                
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            # We fail silently to avoid crashing the whole RL stream if DB is locked
+            print(f"[RANDOMIZER LOG] {e}")
+
         initial_state: PowerGridState = {
             "user_query": query,
             "rl_action": action,
@@ -147,6 +174,8 @@ class PowerGridEnv(gym.Env):
                 "rl_action": action,
                 "rl_action_label": action_label,
                 "unified_report": result.get("unified_report", {}),
+                "health_report": result.get("health_report", "{}"),
+                "transmission_report": result.get("transmission_report", "{}"),
                 "final_decisions": final_decisions,
             }
             print(f"[ENV] Step {self.current_step} complete — reward={reward:.3f}")

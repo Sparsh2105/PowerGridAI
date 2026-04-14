@@ -6,13 +6,34 @@ import PlantGrid from './components/PlantGrid';
 import MemoryLog from './components/MemoryLog';
 import GridMap from './components/GridMap';
 import StrategicIntel from './components/StrategicIntel';
+import AutonomousRL from './components/AutonomousRL';
 import { Shield, Zap, Wind, Thermometer, Database, Globe, Activity, LayoutGrid, Target, Clock, MessageSquare, List, ChevronRight, BarChart3, Radio } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const App = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('activeTab') || 'dashboard';
+  });
   const [health, setHealth] = useState({ status: 'loading', service: 'GridMind AI' });
-  const [lastIntel, setLastIntel] = useState(null);
+  const [lastIntel, setLastIntel] = useState(() => {
+    try {
+      const saved = localStorage.getItem('power_grid_intel');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      console.error("[Intel Hydration Error]", e);
+      return null;
+    }
+  });
+  const [lastIntelAvailable, setLastIntelAvailable] = useState(!!localStorage.getItem('power_grid_intel'));
+  const [chatHistory, setChatHistory] = useState(() => {
+    const saved = localStorage.getItem('chatHistory');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [rlHistory, setRlHistory] = useState(() => {
+    const saved = localStorage.getItem('rlHistory');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [currentRlStep, setCurrentRlStep] = useState(null);
 
   useEffect(() => {
     const checkHealth = async () => {
@@ -34,9 +55,27 @@ const App = () => {
     return () => window.removeEventListener('nav-tab', handleNav);
   }, []);
 
-  const onIntelReceived = (data) => {
-    setLastIntel(data);
-    // Auto-pulse or notify user? Let's just store it for now.
+  useEffect(() => {
+    localStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+  }, [chatHistory]);
+
+  useEffect(() => {
+    localStorage.setItem('rlHistory', JSON.stringify(rlHistory));
+  }, [rlHistory]);
+
+  const onIntelReceived = (report) => {
+    if (!report || typeof report !== 'object') return;
+    setLastIntel(report);
+    try {
+      localStorage.setItem('power_grid_intel', JSON.stringify(report));
+      setLastIntelAvailable(true);
+    } catch (e) {
+      console.error("[Intel Persistence Error]", e);
+    }
   };
 
   const renderContent = () => {
@@ -130,7 +169,19 @@ const App = () => {
           </div>
         );
       case 'control':
-        return <CommandCenter onIntel={onIntelReceived} />;
+        return <CommandCenter 
+          onIntel={onIntelReceived} 
+          history={chatHistory} 
+          setHistory={setChatHistory} 
+          details={lastIntel}
+        />;
+      case 'autonomous':
+        return <AutonomousRL 
+          history={rlHistory} 
+          setHistory={setRlHistory} 
+          currentStep={currentRlStep}
+          setCurrentStep={setCurrentRlStep}
+        />;
       case 'intel':
         return <StrategicIntel data={lastIntel} />;
       case 'plants':
@@ -145,7 +196,7 @@ const App = () => {
   return (
     <div className="flex h-screen w-screen bg-core text-slate-200 overflow-hidden grid-bg font-sans">
       <div className="scanline"></div>
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} lastIntelAvailable={!!lastIntel} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} lastIntelAvailable={lastIntelAvailable} />
 
       <main className="flex-grow flex flex-col relative z-20 min-w-0">
         {/* Global Nav Bar */}

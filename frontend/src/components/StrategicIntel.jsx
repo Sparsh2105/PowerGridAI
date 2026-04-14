@@ -18,7 +18,7 @@ const StrategicIntel = ({ data }) => {
   if (!data) return (
     <div className="h-full flex flex-col items-center justify-center text-slate-600 font-tech">
        <ShieldAlert size={60} className="mb-6 opacity-20" />
-       <p className="tracking-[0.5em] uppercase text-xs">Awaiting Tactical Payload</p>
+       <p className="tracking-[0.5em] uppercase text-xl font-black text-blue-500/40">Awaiting Tactical Payload</p>
     </div>
   );
 
@@ -38,7 +38,7 @@ const StrategicIntel = ({ data }) => {
   })) || [];
 
   return (
-    <div className="flex flex-col h-full gap-8 overflow-y-auto custom-scrollbar pb-20 p-2">
+    <div className="flex flex-col h-full gap-8 overflow-y-auto custom-scrollbar pb-20 p-8">
       {/* Prime Strategic HUD */}
       <div className="grid grid-cols-12 gap-8">
          <div className="col-span-12 xl:col-span-8 flex flex-col gap-8">
@@ -46,13 +46,13 @@ const StrategicIntel = ({ data }) => {
                <div className="absolute top-0 left-0 w-2 h-full bg-blue-500 shadow-[0_0_20px_#3b82f6]"></div>
                <div className="flex justify-between items-start relative z-10">
                   <div className="flex flex-col gap-2">
-                     <span className="text-[10px] font-tech text-blue-500 uppercase tracking-[0.2em]">{data.city} // TACTICAL_GRID_ZONE</span>
-                     <h2 className="text-4xl font-tech text-white italic tracking-tighter uppercase">{data.status}</h2>
+                     <span className="text-sm font-tech text-blue-500 uppercase tracking-widest font-bold">{data.city} // TACTICAL_GRID_ZONE</span>
+                     <h2 className="text-5xl font-tech text-white italic tracking-tighter uppercase leading-none">{data.status}</h2>
                   </div>
                   <div className="text-right">
-                     <span className="text-[10px] font-tech text-slate-500 uppercase tracking-[0.4em]">Grid Stability</span>
-                     <div className="text-5xl font-tech text-white mt-1 italic leading-none">
-                        {Math.abs(data.balance_mw)}<span className="text-sm opacity-30 ml-2">MW {data.balance_mw < 0 ? 'DEFICIT' : 'SURPLUS'}</span>
+                     <span className="text-xs font-tech text-slate-500 uppercase tracking-[0.3em] font-bold">Grid Stability</span>
+                     <div className="text-6xl font-tech text-white mt-2 italic leading-none">
+                        {Math.abs(data.balance_mw)}<span className="text-lg opacity-30 ml-3 font-black">MW {data.balance_mw < 0 ? 'DEFICIT' : 'SURPLUS'}</span>
                      </div>
                   </div>
                </div>
@@ -65,9 +65,9 @@ const StrategicIntel = ({ data }) => {
                  { label: 'Demand Load', val: (data.demand_mw || 0) + ' MW', score: 0.8, color: 'text-emerald-400' }
                ].map((s, i) => (
                   <div key={i} className="glass-panel p-8 rounded-2xl flex flex-col gap-6 group hover:border-blue-500/30 transition-all">
-                     <span className="text-[9px] font-tech text-slate-600 uppercase tracking-[0.3em]">{s.label}</span>
+                     <span className="text-[12px] font-tech text-slate-400 uppercase tracking-[0.3em] font-bold">{s.label}</span>
                      <div className="flex items-center justify-between">
-                        <span className={`text-xl font-tech uppercase ${s.color}`}>{s.val}</span>
+                        <span className={`text-3xl font-tech uppercase italic ${s.color}`}>{s.val}</span>
                         <div className="w-12 h-1 bg-white/5 rounded-full overflow-hidden">
                            <div className="bg-current h-full shadow-[0_0_8px_currentColor]" style={{ width: `${s.score * 100}%`, color: s.color.replace('text-', '#') }}></div>
                         </div>
@@ -81,13 +81,13 @@ const StrategicIntel = ({ data }) => {
             <div className="absolute -right-10 -top-10 opacity-[0.02] group-hover:rotate-45 transition-transform duration-[2000ms]">
                <Activity size={300} />
             </div>
-            <span className="text-[10px] font-tech text-slate-500 uppercase tracking-[0.5em] mb-10">Neural Analysis_Engine</span>
-            <p className="text-lg font-medium text-slate-200 leading-relaxed italic border-l-4 border-blue-500/20 pl-8 font-serif">
+            <span className="text-[18px] font-tech text-slate-300 uppercase tracking-[0.5em] mb-12 font-black">Neural Analysis_Engine</span>
+            <p className="text-2xl font-bold text-white leading-relaxed italic border-l-8 border-blue-600/30 pl-10 font-serif">
                "{data.analysis}"
             </p>
             <div className="mt-10 pt-10 border-t border-white/5 flex items-center justify-between">
                <div className="flex flex-col">
-                  <span className="text-[9px] font-tech text-slate-700 uppercase">Process_Uplink</span>
+                  <span className="text-[12px] font-tech text-slate-700 uppercase">Process_Uplink</span>
                   <span className="text-xs font-bold text-blue-500 uppercase tracking-widest">{data.agent_source} Layer</span>
                </div>
                <Radio size={24} className="text-blue-500/30 animate-pulse" />
@@ -110,10 +110,10 @@ const StrategicIntel = ({ data }) => {
                </div>
             </div>
             <div className="h-[300px] w-full">
-               <ResponsiveContainer width="100%" height="100%">
+               <ResponsiveContainer width="100%" height="100%" debounce={100}>
                   <BarChart data={supplyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Orbitron' }} height={50} />
-                     <YAxis axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Orbitron' }} />
+                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#f8fafc', fontSize: 13, fontWeight: 'bold', fontFamily: 'Orbitron' }} height={50} width={400} />
+                     <YAxis axisLine={false} tickLine={false} tick={{ fill: '#f8fafc', fontSize: 13, fontWeight: 'bold', fontFamily: 'Orbitron' }} width={80} height={0} />
                      <Tooltip 
                         contentStyle={{ backgroundColor: '#0a0d14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontFamily: 'Orbitron' }}
                         itemStyle={{ color: '#fff' }}
@@ -141,23 +141,23 @@ const StrategicIntel = ({ data }) => {
                   <div key={i} className="flex flex-col gap-6 bg-white/[0.02] p-8 rounded-2xl border border-white/5 border-l-4 border-l-emerald-500">
                      <div className="flex justify-between items-start">
                         <div className="flex flex-col">
-                           <span className="text-[10px] font-tech text-slate-600 uppercase mb-2">Adjusted Node</span>
+                           <span className="text-[20px] font-tech text-slate-300 uppercase mb-5 font-black tracking-widest italic">Adjusted Node</span>
                            <span className="text-lg font-tech text-white tracking-widest uppercase">{d.plant}</span>
                         </div>
                         <div className="px-4 py-2 bg-emerald-500/10 rounded-lg text-[10px] font-tech text-emerald-500">+{d.delta} MW</div>
                      </div>
                      <div className="flex items-center justify-between pt-6 border-t border-white/5">
                         <div className="flex flex-col gap-1">
-                           <span className="text-[9px] text-slate-500 uppercase font-tech">Input</span>
+                           <span className="text-[12px] text-slate-500 uppercase font-tech">Input</span>
                            <span className="text-lg font-tech text-white italic">{d.before}</span>
                         </div>
                         <ArrowRight size={20} className="text-slate-700" />
                         <div className="flex flex-col gap-1 text-right">
-                           <span className="text-[9px] text-slate-500 uppercase font-tech">Output</span>
+                           <span className="text-[12px] text-slate-500 uppercase font-tech">Output</span>
                            <span className="text-lg font-tech text-emerald-500 italic">{d.after}</span>
                         </div>
                      </div>
-                     <p className="text-[11px] text-slate-400 font-medium leading-relaxed italic mt-2 font-serif bg-black/20 p-4 rounded-xl">
+                     <p className="text-[22px] text-white font-bold leading-relaxed italic mt-4 font-serif bg-black/40 p-6 rounded-2xl">
                         "{d.reason}"
                      </p>
                   </div>
@@ -182,9 +182,9 @@ const StrategicIntel = ({ data }) => {
          </div>
          <div className="h-[400px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-               <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                  <XAxis type="number" dataKey="distance" name="Distance" unit="km" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Orbitron' }} />
-                  <YAxis type="number" dataKey="cost" name="Cost" unit="₹" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Orbitron' }} />
+               <ScatterChart margin={{ top: 40, right: 40, bottom: 60, left: 60 }}>
+                  <XAxis type="number" dataKey="distance" name="Distance" unit="km" axisLine={false} tickLine={false} tick={{ fill: '#f8fafc', fontSize: 13, fontWeight: 'bold', fontFamily: 'Orbitron', dy: 10 }} width={0} height={20} />
+                  <YAxis type="number" dataKey="cost" name="Cost" unit="₹" axisLine={false} tickLine={false} tick={{ fill: '#f8fafc', fontSize: 13, fontWeight: 'bold', fontFamily: 'Orbitron', dx: -10 }} width={20} height={0} />
                   <ZAxis type="number" dataKey="output" range={[100, 1000]} name="Output" unit="MW" />
                   <Tooltip 
                      cursor={{ strokeDasharray: '3 3' }} 
@@ -196,23 +196,23 @@ const StrategicIntel = ({ data }) => {
                                  <div className="flex flex-col gap-4">
                                     <div className="flex flex-col">
                                        <span className="text-[10px] font-tech text-blue-500 uppercase tracking-widest mb-1">Asset Trace</span>
-                                       <span className="text-sm font-tech text-white uppercase italic">{data.name}</span>
+                                       <span className="text-[18px] font-tech text-white uppercase italic font-black">{data.name}</span>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
                                        <div className="flex flex-col">
-                                          <span className="text-[9px] text-slate-500 uppercase font-tech">Proximity</span>
-                                          <span className="text-xs font-tech text-white">{data.distance} KM</span>
+                                          <span className="text-[14px] text-slate-400 uppercase font-tech font-bold">Proximity</span>
+                                          <span className="text-xl font-tech text-white font-black">{data.distance} KM</span>
                                        </div>
                                        <div className="flex flex-col">
-                                          <span className="text-[9px] text-slate-500 uppercase font-tech">Rate</span>
-                                          <span className="text-xs font-tech text-emerald-500">₹{data.cost}/U</span>
+                                          <span className="text-[14px] text-slate-400 uppercase font-tech font-bold">Rate</span>
+                                          <span className="text-xl font-tech text-emerald-500 font-black">₹{data.cost}/U</span>
                                        </div>
                                        <div className="flex flex-col col-span-2">
-                                          <span className="text-[9px] text-slate-500 uppercase font-tech">Output Spectrum</span>
-                                          <span className="text-xs font-tech text-blue-400">{data.output} MW</span>
+                                          <span className="text-[14px] text-slate-400 uppercase font-tech font-bold">Output Spectrum</span>
+                                          <span className="text-xl font-tech text-blue-400 font-black">{data.output} MW</span>
                                        </div>
                                     </div>
-                                    <div className="text-[9px] font-tech text-slate-700 uppercase tracking-[0.3em] font-black">
+                                    <div className="text-[12px] font-tech text-slate-600 uppercase tracking-[0.3em] font-black border-t border-white/5 pt-4">
                                        Sector // {data.type}
                                     </div>
                                  </div>
@@ -236,11 +236,11 @@ const StrategicIntel = ({ data }) => {
          </div>
          <div className="grid grid-cols-4 gap-8 mt-12 border-t border-white/5 pt-12">
             {plantScatter.slice(0, 4).map((p, i) => (
-               <div key={i} className="flex flex-col gap-2">
-                  <span className="text-[10px] font-tech text-white truncate">{p.name}</span>
-                  <div className="flex justify-between items-center text-[9px] font-mono font-bold text-slate-500 uppercase tracking-tighter">
-                     <span>Dist: {p.distance}KM</span>
-                     <span>Rate: {p.cost}/U</span>
+               <div key={i} className="flex flex-col gap-4 p-6 bg-white/[0.02] rounded-2xl border border-white/5 group hover:border-blue-500/30 transition-all">
+                  <span className="text-lg font-tech text-white truncate font-black tracking-widest uppercase italic border-b border-white/5 pb-3">{p.name}</span>
+                  <div className="flex justify-between items-center text-[12px] font-mono font-bold text-slate-400 uppercase tracking-widest">
+                     <span>Dist: <span className="text-blue-500">{p.distance}KM</span></span>
+                     <span>Rate: <span className="text-emerald-500">{p.cost}/U</span></span>
                   </div>
                </div>
             ))}

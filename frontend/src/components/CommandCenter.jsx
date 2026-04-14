@@ -5,11 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const API_BASE = 'http://127.0.0.1:8000';
 
-const CommandCenter = ({ onIntel }) => {
+const CommandCenter = ({ onIntel, history, setHistory, details }) => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState([]);
-  const [details, setDetails] = useState(null);
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -37,7 +35,6 @@ const CommandCenter = ({ onIntel }) => {
         report: report
       };
       setHistory(prev => [...prev, botMsg]);
-      setDetails(report);
       if (onIntel) onIntel(report);
     } catch (err) {
       console.error("[Neural Relay Error]", err);
@@ -60,12 +57,21 @@ const CommandCenter = ({ onIntel }) => {
               <Sparkles size={20} className="text-blue-500" />
               <h1 className="text-xs font-tech font-bold uppercase tracking-[0.2em] text-white">Neural Relay Console</h1>
            </div>
-           {loading && (
-              <div className="flex items-center gap-3">
-                 <Loader2 size={12} className="animate-spin text-blue-500" />
-                 <span className="text-[10px] font-tech text-slate-500 uppercase tracking-widest">Processing Tactical Loop</span>
-              </div>
-           )}
+           <div className="flex items-center gap-6">
+              <button 
+                onClick={() => setHistory([])}
+                className="text-[9px] font-tech text-slate-500 hover:text-rose-500 transition-colors uppercase tracking-[0.2em] font-black"
+                title="Clear Tactical Memory"
+              >
+                Purge History
+              </button>
+              {loading && (
+                 <div className="flex items-center gap-3">
+                    <Loader2 size={12} className="animate-spin text-blue-500" />
+                    <span className="text-[10px] font-tech text-slate-500 uppercase tracking-widest">Processing Tactical Loop</span>
+                 </div>
+              )}
+           </div>
         </header>
 
         <div ref={scrollRef} className="flex-grow overflow-y-auto p-10 flex flex-col gap-10 custom-scrollbar min-h-0">

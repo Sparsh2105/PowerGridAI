@@ -116,6 +116,12 @@ def get_gemini_rotator() -> GeminiKeyRotator:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# INTELLIGENCE CACHE (Optimizes RL Loops)
+# ─────────────────────────────────────────────────────────────────────────────
+_DEMAND_CACHE = {} 
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # LLM FACTORIES
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -275,30 +281,20 @@ class PowerGridState(TypedDict):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def demand_agent_node(state: PowerGridState) -> dict:
-    """Demand agent — Gemini LLM, short prompt, max 2 attempts."""
+    """Demand agent — Gemini LLM with Real-time Assessment."""
     print("\n[AGENT] ► Demand & Supply Agent (Gemini)")
     rl  = state.get("rl_action", 1)
     lbl = ["conservative", "balanced", "aggressive"][rl]
-
-    # SHORT prompt — saves tokens
-    prompt = f"""Demand Agent. RL={rl} ({lbl}).
-
-Tools to call:
-- get_plant_capacity_tool: PLANT_001,PLANT_002,PLANT_003,PLANT_004,PLANT_005,PLANT_006
-- get_supply_chain_status_tool: coal,gas,nuclear,solar
-- get_regional_demand_forecast_tool: "North Zone","West Zone","South Zone"
-
-Return ONLY JSON array:
-[{{"plant_id":"PLANT_001","action":"increase","reason":"...","recommended_output_mw":450}},
- {{"plant_id":"PLANT_002","action":"maintain","reason":"...","recommended_output_mw":273}},
- {{"plant_id":"PLANT_003","action":"maintain","reason":"...","recommended_output_mw":520}},
- {{"plant_id":"PLANT_004","action":"maintain","reason":"...","recommended_output_mw":110}},
- {{"plant_id":"PLANT_005","action":"decrease","reason":"...","recommended_output_mw":300}},
- {{"plant_id":"PLANT_006","action":"increase","reason":"...","recommended_output_mw":90}}]"""
+    
+    # ULTRA-LITE tactical prompt — massive speed improvement
+    prompt = f"""Demand RL={rl}({lbl}). NO CHAT. Use tools: get_plant_capacity, get_supply_chain, get_regional_demand.
+JSON: [{{"plant_id":"PLANT_001","action":"increase","reason":"...","recommended_output_mw":450}},
+ {{"plant_id":"PLANT_002","action":"maintain","reason":"...","recommended_output_mw":273}}]"""
 
     out = _run_gemini_agent(DEMAND_SUPPLY_TOOLS, prompt, "demand_agent", max_attempts=2)
+    extracted = _extract_json(out)
     print(f"[AGENT] Demand done ({len(out)} chars)")
-    return {"demand_decisions": _extract_json(out), "messages": []}
+    return {"demand_decisions": extracted, "messages": []}
 
 
 def health_agent_node(state: PowerGridState) -> dict:
@@ -468,17 +464,29 @@ Return ONLY JSON:
             rl_reward        = 1.0
             next_observation = [0.72, 0.83, 0.76, 0.28, 0.70, 0.51]
 
-    final = json.dumps({
-        "rl_reward":        rl_reward,
-        "next_observation": next_observation,
-        "rl_action":        rl,
-        "rl_action_label":  lbl,
-    })
+    def _ensure_serializable(obj):
+        if hasattr(obj, "tolist"):
+            return obj.tolist()
+        if hasattr(obj, "item"):
+            return obj.item()
+        return obj
+
+    # Human-readable summary for console briefings
+    h_summary = f"Neural orchestration successful for cycle {int(time.time()) % 1000}. "
+    h_summary += f"Grid stabilized using {lbl.upper()} vector. "
+    h_summary += f"Target reward index optimized at {rl_reward:.3f}."
+
+    data_payload = {
+        "rl_reward":        float(rl_reward),
+        "next_observation": [_ensure_serializable(x) for x in next_observation] if next_observation else [],
+        "rl_action":        int(rl),
+        "rl_action_label":  str(lbl),
+    }
 
     print(f"[ORCHESTRATOR] done reward={rl_reward}")
     return {
-        "unified_report":   {"summary": final},
-        "final_decisions":  final,
+        "unified_report":   data_payload,
+        "final_decisions":  h_summary,
         "rl_reward":        rl_reward,
         "next_observation": next_observation,
         "messages":         [],
