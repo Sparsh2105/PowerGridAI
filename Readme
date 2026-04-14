@@ -1,142 +1,102 @@
-# ⚡ PowerGrid AI — GridMind V2
+# ⚡ Power Grid Intelligence System
 
-A **multi-agent LangGraph** power grid controller for India.  
-Uses **Gemini AI** + **live Tavily signals** to balance demand and supply across 10 real power plants.
+A multi-agent AI system built with **LangGraph** that manages power plant operations,
+wrapped in a **Gymnasium RL environment** for future reinforcement learning training.
 
----
-
-## 🏗️ Architecture
+## Architecture
 
 ```
-POST /chat or /run
-        ↓
-[location_agent]  → geocodes city, ranks 10 plants by distance
-        ↓
-[sensor_agent]    → fetches live weather / commodity / crisis signals
-        ↓
-[demand_agent]    → forecasts grid demand (base + weather adj + noise)
-        ↓
-[supply_agent]    → audits plant outputs, headroom, per-type totals
-        ↓
-[decision_agent]  → Gemini AI or rule-based fallback
-        ↓
-[apply_agent]     → enforces MW limits (skipped if all hold)
-        ↓
-[memory_agent]    → saves to SQLite
-        ↓
-[report_agent]    → returns structured JSON response
+RL Environment (PowerGridEnv)
+        │
+        │  state + action (0/1/2)
+        ▼
+┌──────────────────────────────────────┐
+│     MAIN ORCHESTRATOR AGENT          │
+│  reads RL action, controls sub-agents│
+└───────┬─────────────┬────────────────┘
+        │             │            │
+        ▼             ▼            ▼
+ [Demand &     [Plant Health  [Transmission
+  Supply]       Tracker]       Agent]
+        │             │            │
+        └─────────────┴────────────┘
+                      │
+              Orchestrator collects
+              → conflict resolution
+              → reward signal
+              → next observation
 ```
 
----
-
-## 📁 Project Structure
+## File Structure
 
 ```
-PowerGridAI/
-├── api.py               ← FastAPI server — single entry point
+power_grid_ai/
+├── main.py                        # Entry point
+├── graph.py                       # LangGraph graph + state schema
 ├── requirements.txt
-├── .env.example         ← copy to .env and add your keys
-│
-├── agent/
-│   ├── flow.py          ← LangGraph StateGraph — 9 agents
-│   └── grid_agent.py    ← Gemini caller + fallback logic
-│
-├── core/
-│   ├── config.py        ← plants, cities, API keys, haversine math
-│   └── memory.py        ← SQLite persistence
-│
-└── tools/
-    ├── search_tool.py    ← Tavily web search wrapper
-    ├── weather_tool.py   ← live weather signals
-    ├── commodity_tool.py ← coal/gas/oil price signals
-    ├── crisis_tool.py    ← crisis/outage detection
-    └── distance_tool.py  ← 3-tier geocoder + haversine distance
+├── .env.example
+├── tools/
+│   ├── demand_supply_tools.py     # Tools for Agent 1
+│   ├── health_tools.py            # Tools for Agent 2
+│   ├── transmission_tools.py      # Tools for Agent 3
+│   └── orchestrator_tools.py     # Tools for Main Orchestrator
+├── database/
+│   └── db_setup.py               # SQLite schema + seeding
+└── rl_env/
+    └── power_grid_env.py         # Gymnasium env wrapper
 ```
 
----
-
-## 🚀 Setup
+## Setup
 
 ```bash
-# 1. Clone
-git clone https://github.com/Sparsh2105/PowerGridAI.git
-cd PowerGridAI
+# 1. Clone / copy files
+cd power_grid_ai
 
-# 2. Virtual environment
+# 2. Create virtual environment
 python -m venv venv
-venv\Scripts\activate        # Windows
-source venv/bin/activate     # Mac/Linux
+source venv/bin/activate       # Linux/Mac
+venv\Scripts\activate          # Windows
 
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Add API keys
+# 4. Set API keys
 cp .env.example .env
 # Edit .env and add your keys:
-#   GEMINI_API_KEY  → https://aistudio.google.com/apikey  (free)
-#   TAVILY_API_KEY  → https://tavily.com                  (free, 1000/month)
+#   ANTHROPIC_API_KEY=sk-ant-...
+#   TAVILY_API_KEY=tvly-...
 
 # 5. Run
-uvicorn api:app --reload --port 8000
+python main.py          # balanced mode (default)
+python main.py 0        # conservative
+python main.py 2        # aggressive
 ```
 
----
+## Agents
 
-## 📡 API Endpoints
+| Agent | Purpose | Tools |
+|---|---|---|
+| Main Orchestrator | Controls everything, resolves conflicts | system snapshot, conflict resolver, reward, next state |
+| Demand & Supply | Decide inc/dec production per plant | distance, supply chain, prices, capacity, weather |
+| Plant Health | Monitor and schedule maintenance | runtime, sensors, health score, sqlite scheduler |
+| Transmission | Line efficiency and load balancing | line data, loss calc, balancing, flag inspection |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET`  | `/health` | Server alive check |
-| `POST` | `/chat` | Natural language input |
-| `POST` | `/run` | Structured city input |
-| `GET`  | `/plants` | List all 10 power plants |
-| `GET`  | `/memory/decisions` | Recent decisions from SQLite |
-| `GET`  | `/memory/signals` | Recent signals from SQLite |
+## RL Environment
 
-Swagger UI → `http://localhost:8000/docs`
+**Observation** (6 floats, normalized 0-1):
+- avg_capacity, avg_efficiency, plant_health_ratio, degraded_lines_ratio, total_capacity, demand_forecast
 
----
+**Action** (Discrete 3):
+- `0` = conservative → prioritize maintenance
+- `1` = balanced → standard operation
+- `2` = aggressive → maximize output
 
-## 💬 Usage Examples
+**Future RL training with stable-baselines3:**
+```python
+from stable_baselines3 import PPO
+from rl_env.power_grid_env import PowerGridEnv
 
-### Natural language — `/chat`
-```bash
-curl -X POST http://localhost:8000/chat \
-  -H "Content-Type: application/json" \
-  -d "{\"message\": \"heavy rain in Mumbai and coal prices are rising\"}"
+env = PowerGridEnv(max_steps=20)
+model = PPO("MlpPolicy", env, verbose=1)
+model.learn(total_timesteps=10000)
 ```
-
-### Structured — `/run`
-```bash
-curl -X POST http://localhost:8000/run \
-  -H "Content-Type: application/json" \
-  -d "{\"city\": \"Bhopal\"}"
-```
-
----
-
-## 🔋 Power Plants Covered
-
-| Plant | Type | State |
-|-------|------|-------|
-| Vindhyachal STPS | Coal | Madhya Pradesh |
-| Talcher STPS | Coal | Odisha |
-| Kudankulam NPP | Nuclear | Tamil Nadu |
-| Bhakra Nangal Dam | Hydro | Himachal Pradesh |
-| Sardar Sarovar | Hydro | Gujarat |
-| Bhadla Solar Park | Solar | Rajasthan |
-| Pavagada Solar Park | Solar | Karnataka |
-| Muppandal Wind Farm | Wind | Tamil Nadu |
-| Jaisalmer Wind Park | Wind | Rajasthan |
-| Simhadri STPS | Coal | Andhra Pradesh |
-
----
-
-## 🛠️ Tech Stack
-
-- **LangGraph** — multi-agent graph orchestration
-- **FastAPI + Uvicorn** — REST API server
-- **Gemini 2.0 Flash** — AI decision making
-- **Tavily Search** — live web data (weather, prices, crisis)
-- **SQLite** — persistent memory
-- **Nominatim (OpenStreetMap)** — free geocoding
