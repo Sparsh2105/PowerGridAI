@@ -65,6 +65,14 @@ def setup_database():
             status TEXT,
             notes TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS decisions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            city TEXT,
+            agent_source TEXT,
+            summary TEXT,
+            timestamp TEXT
+        );
     """)
 
     # Seed plant_health if empty

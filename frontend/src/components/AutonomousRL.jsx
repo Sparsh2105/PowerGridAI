@@ -17,7 +17,8 @@ import {
   PolarRadiusAxis,
   BarChart,
   Bar,
-  Cell
+  Cell,
+  LabelList
 } from 'recharts';
 import { 
   Play, 
@@ -59,7 +60,7 @@ const LINE_NAMES = {
   "LINE_006": "West Ext"
 };
 
-const AutonomousRL = ({ history, setHistory, currentStep, setCurrentStep }) => {
+const AutonomousRL = ({ history, setHistory, currentStep, setCurrentStep, onIntel }) => {
   const [isRunning, setIsRunning] = useState(false);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -92,6 +93,48 @@ const AutonomousRL = ({ history, setHistory, currentStep, setCurrentStep }) => {
         setHistory(prev => [...prev, data]);
         setCurrentStep(data);
         setProgress((data.step / 20) * 100);
+
+        if (onIntel) {
+          // If backend provided a pre-formatted report, use it. Otherwise fallback to client-side mapping.
+          const report = data.intel_report || {
+            summary: data.final_decisions || `Neural Step ${data.step} optimization complete.`,
+            analysis: data.final_decisions || "Analyzing grid vectors...",
+            status: data.reward > 0.9 ? "OPTIMIZED" : "STABILIZING",
+            city: "NATIONAL_MAINLAND",
+            demand_mw: Math.round(data.obs[5] * 2000),
+            supply_mw: Math.round(data.obs[4] * 2000),
+            balance_mw: Math.round((data.obs[4] - data.obs[5]) * 2000),
+            agent_source: "Neural_Loop",
+            supply_breakdown: {
+              by_type: {
+                coal: { current_mw: 450, max_mw: 500 },
+                nuclear: { current_mw: 520, max_mw: 600 },
+                hydro: { current_mw: 300, max_mw: 400 },
+                solar: { current_mw: 250, max_mw: 400 },
+                wind: { current_mw: 150, max_mw: 300 }
+              }
+            },
+            signals: {
+              weather: { label: data.obs[0] > 0.7 ? "CLEAR" : "STORM", score: data.obs[0] },
+              crisis: { label: data.obs[1] > 0.8 ? "NORMAL" : "CRITICAL", score: data.obs[1] }
+            },
+            plants: (data.health_report?.plant_scores || []).map((p, i) => ({
+              name: PLANT_NAMES[p.plant_id] || p.plant_id,
+              current_mw: Math.round(p.health_score * 5),
+              distance_km: 100 + (i * 150),
+              cost: 4.5,
+              type: p.plant_id.includes('Solar') ? 'solar' : 'coal'
+            })),
+            decisions: (data.health_report?.maintenance_actions || []).map(ma => ({
+              plant: PLANT_NAMES[ma.plant_id] || ma.plant_id,
+              delta: -20,
+              before: "HEALTHY",
+              after: "MAINTENANCE",
+              reason: `Scheduling ${ma.action} maintenance.`
+            }))
+          };
+          onIntel(report);
+        }
       };
 
       eventSource.onerror = (err) => {
@@ -244,7 +287,7 @@ const AutonomousRL = ({ history, setHistory, currentStep, setCurrentStep }) => {
                 </div>
                 {currentStep && (
                    <div className="flex items-baseline gap-3">
-                      <span className="text-3xl font-tech font-black text-emerald-500 italic tracking-tighter">{currentStep.reward.toFixed(3)}</span>
+                      <span className="text-3xl font-tech font-black text-emerald-500 italic tracking-tighter">{Math.round(currentStep.reward)}</span>
                       <span className="text-[10px] text-slate-700 font-tech font-black uppercase tracking-widest">Step Rating</span>
                    </div>
                 )}
@@ -307,18 +350,19 @@ const AutonomousRL = ({ history, setHistory, currentStep, setCurrentStep }) => {
                    <h3 className="text-xs font-tech font-bold tracking-widest text-white">Node Status</h3>
                 </div>
                 <div className="flex-grow w-full">
-                   <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={plantHealthData} layout="vertical" margin={{ left: 20 }}>
-                         <XAxis type="number" hide domain={[0, 100]} width={0} height={0} />
-                         <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Orbitron' }} width={120} height={0} />
-                         <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={{ backgroundColor: '#0a0d14', border: 'none', borderRadius: '12px', fontSize: '10px' }} />
-                         <Bar dataKey="health" radius={[0, 4, 4, 0]} barSize={24}>
+                    <ResponsiveContainer width="100%" height="100%">
+                       <BarChart data={plantHealthData} layout="vertical" margin={{ left: 20, right: 60 }}>
+                          <XAxis type="number" hide domain={[0, 100]} />
+                          <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Orbitron' }} width={120} />
+                          <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={{ backgroundColor: '#0a0d14', border: 'none', borderRadius: '12px', fontSize: '10px' }} />
+                          <Bar dataKey="health" radius={[0, 4, 4, 0]} barSize={24}>
                             {plantHealthData.map((entry, index) => (
                                <Cell key={`cell-${index}`} fill={entry.health > 70 ? '#10b981' : entry.health > 40 ? '#f59e0b' : '#ef4444'} />
                             ))}
+                            <LabelList dataKey="health" position="right" fill="#ffffff" style={{ fontSize: '11px', fontFamily: 'Orbitron', fontWeight: '900' }} formatter={(val) => `${Math.round(val)}%`} />
                          </Bar>
-                      </BarChart>
-                   </ResponsiveContainer>
+                       </BarChart>
+                    </ResponsiveContainer>
                 </div>
              </div>
              <div className="glass-panel p-10 rounded-3xl flex flex-col gap-8 h-[400px]">
@@ -327,13 +371,15 @@ const AutonomousRL = ({ history, setHistory, currentStep, setCurrentStep }) => {
                    <h3 className="text-xs font-tech font-bold tracking-widest text-white">Grid Efficiency</h3>
                 </div>
                 <div className="flex-grow w-full">
-                   <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={lineEffData} layout="vertical" margin={{ left: 20 }}>
-                         <XAxis type="number" hide domain={[0, 100]} width={0} height={0} />
-                         <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Orbitron' }} width={120} height={0} />
-                         <Bar dataKey="efficiency" radius={[0, 4, 4, 0]} barSize={24} fill="#10b981" />
-                      </BarChart>
-                   </ResponsiveContainer>
+                    <ResponsiveContainer width="100%" height="100%">
+                       <BarChart data={lineEffData} layout="vertical" margin={{ left: 20, right: 60 }}>
+                          <XAxis type="number" hide domain={[0, 100]} />
+                          <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Orbitron' }} width={120} />
+                          <Bar dataKey="efficiency" radius={[0, 4, 4, 0]} barSize={24} fill="#10b981">
+                            <LabelList dataKey="efficiency" position="right" fill="#ffffff" style={{ fontSize: '11px', fontFamily: 'Orbitron', fontWeight: '900' }} formatter={(val) => `${Math.round(val)}%`} />
+                         </Bar>
+                       </BarChart>
+                    </ResponsiveContainer>
                 </div>
              </div>
           </div>
@@ -391,7 +437,7 @@ const AutonomousRL = ({ history, setHistory, currentStep, setCurrentStep }) => {
                         <span className="text-slate-400 text-[11px] uppercase tracking-[0.3em] font-black italic">{h.action_label} State Transfer</span>
                      </div>
                      <div className="flex items-center gap-3 group-hover:scale-105 transition-transform">
-                        <div className={`text-4xl font-tech font-black italic ${h.reward >= 1 ? 'text-emerald-500' : 'text-orange-500'}`}>{h.reward.toFixed(3)}</div>
+                        <div className={`text-4xl font-tech font-black italic ${h.reward >= 1 ? 'text-emerald-500' : 'text-orange-500'}`}>{Math.round(h.reward)}</div>
                         <span className="text-[9px] text-slate-700 uppercase font-black tracking-widest">RT_SCORE</span>
                      </div>
                   </div>

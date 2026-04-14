@@ -162,7 +162,7 @@ const CommandCenter = ({ onIntel, history, setHistory, details }) => {
                       </div>
                       <span className="text-[9px] font-tech text-slate-500 font-bold uppercase tracking-widest">Gross Load</span>
                       <div className="flex items-baseline gap-3">
-                         <span className="text-4xl font-tech font-black text-white italic tabular-nums tracking-tighter">{details.demand_mw}</span>
+                         <span className="text-4xl font-tech font-black text-white italic tabular-nums tracking-tighter">{Math.round(details.demand_mw)}</span>
                          <span className="text-[10px] text-slate-700 font-tech font-black">MW</span>
                       </div>
                    </div>
@@ -172,7 +172,7 @@ const CommandCenter = ({ onIntel, history, setHistory, details }) => {
                       </div>
                       <span className="text-[9px] font-tech text-slate-500 font-bold uppercase tracking-widest">Active Supply</span>
                       <div className="flex items-baseline gap-3">
-                         <span className="text-4xl font-tech font-black text-emerald-500 italic tabular-nums tracking-tighter">{details.supply_mw}</span>
+                         <span className="text-4xl font-tech font-black text-emerald-500 italic tabular-nums tracking-tighter">{Math.round(details.supply_mw)}</span>
                          <span className="text-[10px] text-slate-700 font-tech font-black">MW</span>
                       </div>
                    </div>
@@ -191,7 +191,7 @@ const CommandCenter = ({ onIntel, history, setHistory, details }) => {
                               <span className="text-[13px] font-tech font-black text-slate-400 uppercase tracking-tighter group-hover:text-white transition-colors italic">{type}</span>
                            </div>
                            <div className="flex items-center gap-8">
-                              <span className="text-[14px] font-tech font-black text-white tabular-nums tracking-tighter italic">{stats.current_mw} <span className="text-[8px] opacity-20">MW</span></span>
+                              <span className="text-[14px] font-tech font-black text-white tabular-nums tracking-tighter italic">{Math.round(stats.current_mw)} <span className="text-[8px] opacity-20">MW</span></span>
                               <div className="w-20 bg-white/5 h-1 rounded-full overflow-hidden border border-white/5">
                                  <motion.div 
                                    initial={{ width: 0 }}

@@ -52,7 +52,7 @@ const StrategicIntel = ({ data }) => {
                   <div className="text-right">
                      <span className="text-xs font-tech text-slate-500 uppercase tracking-[0.3em] font-bold">Grid Stability</span>
                      <div className="text-6xl font-tech text-white mt-2 italic leading-none">
-                        {Math.abs(data.balance_mw)}<span className="text-lg opacity-30 ml-3 font-black">MW {data.balance_mw < 0 ? 'DEFICIT' : 'SURPLUS'}</span>
+                        {Math.abs(Math.round(data.balance_mw))}<span className="text-lg opacity-30 ml-3 font-black">MW {data.balance_mw < 0 ? 'DEFICIT' : 'SURPLUS'}</span>
                      </div>
                   </div>
                </div>
@@ -62,7 +62,7 @@ const StrategicIntel = ({ data }) => {
                {[
                  { label: 'Weather Signal', val: data.signals?.weather?.label || 'N/A', score: data.signals?.weather?.score || 0, color: 'text-blue-400' },
                  { label: 'Grid Urgency', val: data.signals?.crisis?.label || 'N/A', score: data.signals?.crisis?.score || 0, color: 'text-orange-400' },
-                 { label: 'Demand Load', val: (data.demand_mw || 0) + ' MW', score: 0.8, color: 'text-emerald-400' }
+                 { label: 'Demand Load', val: Math.round(data.demand_mw || 0) + ' MW', score: 0.8, color: 'text-emerald-400' }
                ].map((s, i) => (
                   <div key={i} className="glass-panel p-8 rounded-2xl flex flex-col gap-6 group hover:border-blue-500/30 transition-all">
                      <span className="text-[12px] font-tech text-slate-400 uppercase tracking-[0.3em] font-bold">{s.label}</span>
@@ -144,17 +144,17 @@ const StrategicIntel = ({ data }) => {
                            <span className="text-[20px] font-tech text-slate-300 uppercase mb-5 font-black tracking-widest italic">Adjusted Node</span>
                            <span className="text-lg font-tech text-white tracking-widest uppercase">{d.plant}</span>
                         </div>
-                        <div className="px-4 py-2 bg-emerald-500/10 rounded-lg text-[10px] font-tech text-emerald-500">+{d.delta} MW</div>
+                        <div className="px-4 py-2 bg-emerald-500/10 rounded-lg text-[10px] font-tech text-emerald-500">+{Math.round(d.delta)} MW</div>
                      </div>
                      <div className="flex items-center justify-between pt-6 border-t border-white/5">
                         <div className="flex flex-col gap-1">
                            <span className="text-[12px] text-slate-500 uppercase font-tech">Input</span>
-                           <span className="text-lg font-tech text-white italic">{d.before}</span>
+                           <span className="text-lg font-tech text-white italic">{Math.round(d.before)}</span>
                         </div>
                         <ArrowRight size={20} className="text-slate-700" />
                         <div className="flex flex-col gap-1 text-right">
                            <span className="text-[12px] text-slate-500 uppercase font-tech">Output</span>
-                           <span className="text-lg font-tech text-emerald-500 italic">{d.after}</span>
+                           <span className="text-lg font-tech text-emerald-500 italic">{Math.round(d.after)}</span>
                         </div>
                      </div>
                      <p className="text-[22px] text-white font-bold leading-relaxed italic mt-4 font-serif bg-black/40 p-6 rounded-2xl">
@@ -201,15 +201,15 @@ const StrategicIntel = ({ data }) => {
                                     <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
                                        <div className="flex flex-col">
                                           <span className="text-[14px] text-slate-400 uppercase font-tech font-bold">Proximity</span>
-                                          <span className="text-xl font-tech text-white font-black">{data.distance} KM</span>
+                                          <span className="text-xl font-tech text-white font-black">{Math.round(data.distance)} KM</span>
                                        </div>
                                        <div className="flex flex-col">
                                           <span className="text-[14px] text-slate-400 uppercase font-tech font-bold">Rate</span>
-                                          <span className="text-xl font-tech text-emerald-500 font-black">₹{data.cost}/U</span>
+                                          <span className="text-xl font-tech text-emerald-500 font-black">₹{Math.round(data.cost)}/U</span>
                                        </div>
                                        <div className="flex flex-col col-span-2">
                                           <span className="text-[14px] text-slate-400 uppercase font-tech font-bold">Output Spectrum</span>
-                                          <span className="text-xl font-tech text-blue-400 font-black">{data.output} MW</span>
+                                          <span className="text-xl font-tech text-blue-400 font-black">{Math.round(data.output)} MW</span>
                                        </div>
                                     </div>
                                     <div className="text-[12px] font-tech text-slate-600 uppercase tracking-[0.3em] font-black border-t border-white/5 pt-4">

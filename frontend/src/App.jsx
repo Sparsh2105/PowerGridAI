@@ -181,6 +181,7 @@ const App = () => {
           setHistory={setRlHistory} 
           currentStep={currentRlStep}
           setCurrentStep={setCurrentRlStep}
+          onIntel={onIntelReceived}
         />;
       case 'intel':
         return <StrategicIntel data={lastIntel} />;

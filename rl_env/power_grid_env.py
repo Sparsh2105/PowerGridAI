@@ -108,13 +108,19 @@ class PowerGridEnv(gym.Env):
                 t_new = max(40.0, min(110.0, r[2] + (random.random() - 0.5) * 5.0))
                 c_new = max(10.0, min(100.0, r[3] + (random.random() - 0.5) * 8.0))
                 
+                # Fetch max_mw to update current_output_mw
+                max_mw_row = conn.execute("SELECT max_capacity_mw FROM plant_health WHERE plant_id = ?", (r[0],)).fetchone()
+                max_mw = max_mw_row[0] if max_mw_row else 500
+                o_new = (c_new / 100.0) * max_mw
+
                 conn.execute("""
                     UPDATE plant_health 
                     SET vibration_index = ?,
                         temperature_celsius = ?,
-                        current_capacity_percent = ?
+                        current_capacity_percent = ?,
+                        current_output_mw = ?
                     WHERE plant_id = ?
-                """, (v_new, t_new, c_new, r[0]))
+                """, (v_new, t_new, c_new, o_new, r[0]))
                 
             conn.commit()
             conn.close()

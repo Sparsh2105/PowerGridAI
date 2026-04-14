@@ -83,25 +83,29 @@ class GeminiKeyRotator:
     def current_key(self) -> str:
         return self.keys[self._index % len(self.keys)]
 
-    def next_key(self, cooldown_seconds: float = 65.0) -> str:
+    def next_key(self, cooldown_seconds: float = 60.0) -> str:
         bad = self.current_key()
         self._cooldown_until[bad] = time.time() + cooldown_seconds
-        print(f"[GEMINI ROTATOR] Key ...{bad[-6:]} cooldown {cooldown_seconds:.0f}s")
+        print(f"[GEMINI ROTATOR] Key ...{bad[-6:]} flagged (429/503). Cooldown {cooldown_seconds:.0f}s")
 
         for _ in range(len(self.keys)):
             self._index = (self._index + 1) % len(self.keys)
             candidate   = self.keys[self._index]
             if time.time() >= self._cooldown_until.get(candidate, 0):
-                print(f"[GEMINI ROTATOR] Switched to ...{candidate[-6:]}")
+                print(f"[GEMINI ROTATOR] Rotated to key ...{candidate[-6:]}")
                 return candidate
 
+        # All keys on cooldown, pick the one that expires soonest
         best = min(self.keys, key=lambda k: self._cooldown_until.get(k, 0))
         wait = max(0, self._cooldown_until.get(best, 0) - time.time())
         if wait > 0:
-            print(f"[GEMINI ROTATOR] All exhausted → waiting {wait:.1f}s")
-            time.sleep(wait + 2)
-        self._index                  = self.keys.index(best)
-        self._cooldown_until[best]   = 0
+            print(f"[GEMINI ROTATOR] All keys exhausted. Global wait: {wait:.1f}s")
+            # For interactive chat, we might want to fail fast, but here we'll do a short wait
+            sleep_time = min(wait, 10) # Don't block for more than 10s in the thread
+            time.sleep(sleep_time)
+            
+        self._index = self.keys.index(best)
+        self._cooldown_until[best] = 0
         return best
 
 
@@ -129,13 +133,11 @@ def get_gemini_llm(api_key: Optional[str] = None, use_fallback: bool = False):
     """Gemini LLM — used for demand agent."""
     from langchain_google_genai import ChatGoogleGenerativeAI
 
-    model = (
-        os.environ.get("GEMINI_MODEL_FALLBACK", "gemini-1.5-flash")
-        if use_fallback
-        else os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
-    )
+    # Hardcoding stable models to ensure reliability
+    model = "gemini-1.5-flash-8b" if use_fallback else "gemini-1.5-flash"
+    
     key = api_key or get_gemini_rotator().current_key()
-    print(f"[GEMINI] {model} | key ...{key[-6:]}")
+    print(f"[GEMINI] Using {model} with key ...{key[-6:]}")
     return ChatGoogleGenerativeAI(
         model=model,
         google_api_key=key,
@@ -152,8 +154,9 @@ def get_groq_llm():
     if not groq_key:
         raise ValueError("GROQ_API_KEY not found in .env")
 
-    model = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
-    print(f"[GROQ] {model}")
+    # Hardcoding stable model to avoid decommissioning errors
+    model = "llama-3.3-70b-versatile"
+    print(f"[GROQ] Using {model}")
     return ChatGroq(
         model=model,
         api_key=groq_key,
@@ -176,13 +179,16 @@ def _extract_json(text: str) -> str:
     return text
 
 
-def _run_gemini_agent(tools: list, prompt: str, name: str, max_attempts: int = 2) -> str:
+def _run_gemini_agent(tools: list, prompt: str, name: str, max_attempts: Optional[int] = None) -> str:
     """
-    Run agent with Gemini — short prompt, max 2 attempts, rotation on 429, fallback on 503.
-    max_attempts=2 to save keys for other agents.
+    Run agent with Gemini — short prompt, rotation on 429, fallback on 503.
     """
     rotator      = get_gemini_rotator()
     use_fallback = False
+    
+    # Try all keys at least once
+    if max_attempts is None:
+        max_attempts = len(rotator.keys) * 2
 
     for attempt in range(1, max_attempts + 1):
         try:
