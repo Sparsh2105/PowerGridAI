@@ -116,11 +116,19 @@ def get_live_report(message: str, result: dict):
     demand_mw = int(round(base_demand + demand_jitter))
     balance = int(round(total_supply - demand_mw))
 
+    # Detect city for vectoring
+    cities = ["DELHI", "MUMBAI", "KOLKATA", "CHENNAI", "BHOPAL", "JAIPUR"]
+    detected_city = "NATIONAL_GRID"
+    for c in cities:
+        if c.lower() in message.lower():
+            detected_city = c
+            break
+
     return {
         "summary": result.get("final_decisions", "Neural link optimized."),
         "analysis": result.get("final_decisions", "Analyzing grid state..."),
         "status": "EMERGENCY_MODE" if is_crisis else "STABILIZED",
-        "city": "DELHI" if "delhi" in message.lower() else "NATIONAL_GRID",
+        "city": detected_city,
         "demand_mw": demand_mw,
         "supply_mw": total_supply,
         "balance_mw": balance,
@@ -198,7 +206,7 @@ async def chat(request: ChatRequest):
 
         return {
             "report": report,
-            "parsed_intent": {"city": "DELHI", "context": request.message}
+            "parsed_intent": {"city": report["city"], "context": request.message}
         }
     except Exception as e:
         import traceback
