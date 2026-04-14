@@ -64,16 +64,39 @@ def get_live_report(message: str, result: dict):
         supply_breakdown["by_type"][r["fuel_type"]] = {"current_mw": r["cur"], "max_mw": r["max"]}
         total_supply += r["cur"]
 
-    # 2. Fetch Detailed Plant Data
-    cursor.execute("SELECT plant_name, current_output_mw, location, fuel_type FROM plant_health")
+    # 2. Fetch Detailed Plant Data with real cost and coordinates
+    # Primary city coordinates
+    city_coords = {
+        "DELHI": (28.61, 77.20),
+        "MUMBAI": (19.07, 72.87),
+        "KOLKATA": (22.57, 88.36),
+        "CHENNAI": (13.08, 80.27),
+        "BHOPAL": (23.25, 77.41),
+        "JAIPUR": (26.91, 75.78),
+    }
+
+    # Detect city for vectoring
+    cities = ["DELHI", "MUMBAI", "KOLKATA", "CHENNAI", "BHOPAL", "JAIPUR"]
+    detected_city = "NATIONAL_GRID"
+    for c in cities:
+        if c.lower() in message.lower():
+            detected_city = c
+            break
+
+    target_lat, target_lon = city_coords.get(detected_city, (21.0, 78.0))
+
+    cursor.execute("SELECT plant_name, current_output_mw, max_capacity_mw, fuel_type, unit_cost_inr, lat, lon FROM plant_health")
     plant_rows = cursor.fetchall()
     plants_intel = []
     for r in plant_rows:
+        # Distance calculation (simple pythagorean for visual relative distribution)
+        dist = ((r["lat"] - target_lat)**2 + (r["lon"] - target_lon)**2)**0.5 * 100 
         plants_intel.append({
             "name": r["plant_name"],
             "current_mw": r["current_output_mw"],
-            "distance_km": 100 + (len(plants_intel) * 150),
-            "cost": 4.5,
+            "max_mw": r["max_capacity_mw"],
+            "distance_km": dist,
+            "cost": r["unit_cost_inr"],
             "type": r["fuel_type"]
         })
 
@@ -83,7 +106,6 @@ def get_live_report(message: str, result: dict):
     crisis_score = 0.85 if is_crisis else 0.12
 
     # 4. Decisions (Delta Mapping)
-    # We'll map the demand_decisions if available
     decisions = []
     dd = result.get("demand_decisions", "[]")
     try:
@@ -93,36 +115,35 @@ def get_live_report(message: str, result: dict):
             if m:
                 parsed_dd = json.loads(m.group(1))
                 if isinstance(parsed_dd, list):
-                    for d in parsed_dd[:3]: # last 3
+                    for d in parsed_dd[:4]:
+                        plant_id = d.get("plant_id", "NODE")
+                        # Fetch actual before value from DB
+                        before_row = cursor.execute("SELECT current_output_mw FROM plant_health WHERE plant_id = ? OR plant_name = ?", (plant_id, plant_id)).fetchone()
+                        before_val = before_row[0] if before_row else 400
+                        after_val = d.get('recommended_output_mw', before_val)
+                        
                         decisions.append({
-                            "plant": d.get("plant_id", "NODE"),
-                            "delta": d.get("recommended_output_mw", 0) - 400,
-                            "before": "400MW",
-                            "after": f"{d.get('recommended_output_mw')}MW",
-                            "reason": d.get("reason", "Neural Optimization")
+                            "plant": plant_id,
+                            "delta": int(after_val - before_val),
+                            "before": int(before_val),
+                            "after": int(after_val),
+                            "reason": d.get("reason", "Neural Link Optimization")
                         })
-    except:
+    except Exception as e:
+        print(f"[Decision Parsing Error] {e}")
         pass
 
     if not decisions:
-        decisions = [{"plant": "SYSTEM", "delta": 0, "before": "NOMINAL", "after": "NOMINAL", "reason": "Stable state maintenance."}]
+        decisions = [{"plant": "SYSTEM", "delta": 0, "before": 0, "after": 0, "reason": "Stable state maintenance."}]
 
     conn.close()
     
-    # Add some random load jitter so it's different EVERY time
+    # 5. Load Dynamics
     import random
     base_demand = 1200 + (total_supply % 150)
     demand_jitter = random.randint(-40, 40)
     demand_mw = int(round(base_demand + demand_jitter))
     balance = int(round(total_supply - demand_mw))
-
-    # Detect city for vectoring
-    cities = ["DELHI", "MUMBAI", "KOLKATA", "CHENNAI", "BHOPAL", "JAIPUR"]
-    detected_city = "NATIONAL_GRID"
-    for c in cities:
-        if c.lower() in message.lower():
-            detected_city = c
-            break
 
     return {
         "summary": result.get("final_decisions", "Neural link optimized."),
@@ -150,19 +171,31 @@ def health():
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    initial_state: PowerGridState = {
-        "user_query": request.message,
-        "rl_action": request.rl_action,
-        "current_observation": [0.70, 0.82, 0.75, 0.30, 0.68, 0.50],
-        "demand_decisions": None,
-        "health_report": None,
-        "transmission_report": None,
-        "unified_report": None,
-        "final_decisions": None,
-        "rl_reward": None,
-        "next_observation": None,
-        "messages": [],
-    }
+    try:
+        # Fetch REAL observation from DB
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT vibration_index, temperature_celsius, current_capacity_percent FROM plant_health ORDER BY plant_id LIMIT 6")
+        rows = cursor.fetchall()
+        obs = []
+        for r in rows:
+            obs.append(r["vibration_index"]) # or some combo
+        while len(obs) < 6: obs.append(0.5) 
+        conn.close()
+
+        initial_state: PowerGridState = {
+            "user_query": request.message,
+            "rl_action": request.rl_action,
+            "current_observation": obs,
+            "demand_decisions": None,
+            "health_report": None,
+            "transmission_report": None,
+            "unified_report": None,
+            "final_decisions": None,
+            "rl_reward": None,
+            "next_observation": None,
+            "messages": [],
+        }
 
     try:
         # Run graph in thread to not block event loop

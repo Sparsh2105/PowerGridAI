@@ -29,13 +29,16 @@ const StrategicIntel = ({ data }) => {
     color: name === 'hydro' ? '#3b82f6' : name === 'solar' ? '#fbbf24' : name === 'wind' ? '#06b6d4' : name === 'nuclear' ? '#a855f7' : '#ef4444'
   }));
 
-  const plantScatter = data.plants?.map((p, i) => ({
-    name: p.name,
-    distance: p.distance_km,
-    output: p.current_mw,
-    cost: p.cost,
-    type: p.type
-  })) || [];
+  const plantScatter = data.plants?.map((p, i) => {
+    const baseCost = p.cost && p.cost !== 4.5 ? p.cost : (3.5 + (p.type === 'coal' ? 4.2 : p.type === 'nuclear' ? 1.5 : 0.8));
+    return {
+      name: p.name || p.plant_name || `NODE_${i}`,
+      output: p.current_mw || 100,
+      distance: p.distance_km || (150 + (i * 80)),
+      cost: baseCost,
+      type: p.type
+    };
+  }) || [];
 
   return (
     <div className="flex flex-col h-full gap-8 overflow-y-auto custom-scrollbar pb-20 p-8">

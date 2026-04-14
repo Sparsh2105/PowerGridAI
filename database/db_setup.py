@@ -31,7 +31,10 @@ def setup_database():
             vibration_index REAL,
             temperature_celsius REAL,
             maintenance_status TEXT,
-            next_maintenance_date TEXT
+            next_maintenance_date TEXT,
+            unit_cost_inr REAL,
+            lat REAL,
+            lon REAL
         );
 
         CREATE TABLE IF NOT EXISTS maintenance_log (
@@ -79,15 +82,15 @@ def setup_database():
     cursor.execute("SELECT COUNT(*) FROM plant_health")
     if cursor.fetchone()[0] == 0:
         plants = [
-            ("PLANT_001", "Northern Coal Plant",    "Delhi",     "coal",    12400, 78.0, 500, 390, "2024-06-15", 3, 0.35, 82.0,  "ok",        "2025-06-15"),
-            ("PLANT_002", "Western Gas Station",    "Mumbai",    "gas",     9800,  91.0, 300, 273, "2024-11-01", 7, 0.72, 95.0,  "urgent",    "2025-04-20"),
-            ("PLANT_003", "Eastern Nuclear Plant",  "Kolkata",   "nuclear", 6200,  65.0, 800, 520, "2024-09-20", 1, 0.18, 68.0,  "ok",        "2025-09-20"),
-            ("PLANT_004", "Southern Solar Farm",    "Chennai",   "solar",   3100,  55.0, 200, 110, "2025-01-10", 0, 0.08, 45.0,  "ok",        "2026-01-10"),
-            ("PLANT_005", "Central Hydro Station",  "Bhopal",    "hydro",   15600, 88.0, 400, 352, "2024-03-05", 9, 0.85, 74.0,  "scheduled", "2025-05-01"),
-            ("PLANT_006", "Rajasthan Wind Farm",    "Jaipur",    "wind",    4500,  42.0, 150, 63,  "2024-12-01", 2, 0.25, 38.0,  "ok",        "2025-12-01"),
+            ("PLANT_001", "Northern Coal Plant",    "Delhi",     "coal",    12400, 78.0, 500, 390, "2024-06-15", 3, 0.35, 82.0,  "ok",        "2025-06-15", 7.2, 28.61, 77.20),
+            ("PLANT_002", "Western Gas Station",    "Mumbai",    "gas",     9800,  91.0, 300, 273, "2024-11-01", 7, 0.72, 95.0,  "urgent",    "2025-04-20", 8.5, 19.07, 72.87),
+            ("PLANT_003", "Eastern Nuclear Plant",  "Kolkata",   "nuclear", 6200,  65.0, 800, 520, "2024-09-20", 1, 0.18, 68.0,  "ok",        "2025-09-20", 4.2, 22.57, 88.36),
+            ("PLANT_004", "Southern Solar Farm",    "Chennai",   "solar",   3100,  55.0, 200, 110, "2025-01-10", 0, 0.08, 45.0,  "ok",        "2026-01-10", 2.8, 13.08, 80.27),
+            ("PLANT_005", "Central Hydro Station",  "Bhopal",    "hydro",   15600, 88.0, 400, 352, "2024-03-05", 9, 0.85, 74.0,  "scheduled", "2025-05-01", 5.1, 23.25, 77.41),
+            ("PLANT_006", "Rajasthan Wind Farm",    "Jaipur",    "wind",    4500,  42.0, 150, 63,  "2024-12-01", 2, 0.25, 38.0,  "ok",        "2025-12-01", 3.4, 26.91, 75.78),
         ]
         cursor.executemany("""
-            INSERT INTO plant_health VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            INSERT INTO plant_health VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, plants)
 
     # Seed transmission_lines if empty
