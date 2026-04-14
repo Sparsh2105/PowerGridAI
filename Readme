@@ -1,102 +1,342 @@
-# ⚡ Power Grid Intelligence System
+# GridMind — Power Grid Intelligence System
 
-A multi-agent AI system built with **LangGraph** that manages power plant operations,
-wrapped in a **Gymnasium RL environment** for future reinforcement learning training.
+A production-grade multi-agent AI system that autonomously manages a national power grid. Built with **LangGraph**, **Gemini**, **Groq**, and a **Gymnasium RL environment**, GridMind coordinates four specialized AI agents to optimize plant output, monitor equipment health, and maximize transmission efficiency — all in real time.
+
+---
+
+## What It Does
+
+GridMind runs a continuous decision loop across six power plants and six transmission lines spanning India's five demand zones. At each cycle:
+
+1. A **Demand & Supply Agent** (Gemini LLM) analyzes regional forecasts, supply chain disruptions, raw material prices, and live weather to recommend per-plant output adjustments.
+2. A **Plant Health Agent** (pure Python) reads live sensor data from SQLite — vibration, temperature, fault count, runtime hours — computes a composite health score, and auto-schedules maintenance.
+3. A **Transmission Agent** (pure Python) evaluates line efficiency, calculates power loss per km, flags degraded lines, and recommends load-balancing shifts between zones.
+4. A **Main Orchestrator** (Groq LLM) collects all three reports, resolves conflicts, computes the RL reward signal, and returns the next observation vector.
+
+The entire pipeline is wrapped in a **Gymnasium-compatible RL environment** (`PowerGridEnv`) so it can be trained end-to-end with PPO or DQN via `stable-baselines3`.
+
+---
 
 ## Architecture
 
 ```
-RL Environment (PowerGridEnv)
-        │
-        │  state + action (0/1/2)
-        ▼
-┌──────────────────────────────────────┐
-│     MAIN ORCHESTRATOR AGENT          │
-│  reads RL action, controls sub-agents│
-└───────┬─────────────┬────────────────┘
-        │             │            │
-        ▼             ▼            ▼
- [Demand &     [Plant Health  [Transmission
-  Supply]       Tracker]       Agent]
-        │             │            │
-        └─────────────┴────────────┘
-                      │
-              Orchestrator collects
-              → conflict resolution
-              → reward signal
-              → next observation
+┌─────────────────────────────────────────────────────────┐
+│              Gymnasium RL Environment                   │
+│         PowerGridEnv  (action: 0 / 1 / 2)              │
+└────────────────────────┬────────────────────────────────┘
+                         │  state + action
+                         ▼
+            ┌────────────────────────┐
+            │   MAIN ORCHESTRATOR    │  ← Groq LLM
+            │  conflict resolution   │
+            │  reward · next state   │
+            └──┬──────────┬──────────┘
+               │          │          │
+               ▼          ▼          ▼
+        [Demand &    [Plant Health  [Transmission
+         Supply]      Tracker]       Agent]
+         Gemini LLM   Pure Python    Pure Python
+               │          │          │
+               └──────────┴──────────┘
+                          │
+                     SQLite Database
+              (plant_health · transmission_lines
+               maintenance_log · inspections)
 ```
 
-## File Structure
+**LangGraph** manages the directed graph execution. Each agent node runs sequentially: Demand → Health → Transmission → Orchestrator.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Agent Framework | LangGraph + LangChain |
+| LLM (Demand Agent) | Google Gemini 2.0 Flash |
+| LLM (Orchestrator) | Groq — Llama 3.1 8B Instant |
+| Real-time Search | Tavily API (weather impact) |
+| RL Environment | Gymnasium (OpenAI Gym compatible) |
+| Future RL Training | stable-baselines3 (PPO / DQN) |
+| Backend API | FastAPI + Server-Sent Events |
+| Database | SQLite (auto-seeded on startup) |
+| Frontend | React 18 + Vite + Tailwind CSS |
+| UI Libraries | Recharts · React-Leaflet · Framer Motion |
+
+---
+
+## Project Structure
 
 ```
 power_grid_ai/
-├── main.py                        # Entry point
-├── graph.py                       # LangGraph graph + state schema
+├── main.py                        # CLI entry point (rich terminal output)
+├── server.py                      # FastAPI backend + SSE streaming
+├── graph.py                       # LangGraph state machine + all agent nodes
 ├── requirements.txt
 ├── .env.example
+│
 ├── tools/
-│   ├── demand_supply_tools.py     # Tools for Agent 1
-│   ├── health_tools.py            # Tools for Agent 2
-│   ├── transmission_tools.py      # Tools for Agent 3
-│   └── orchestrator_tools.py     # Tools for Main Orchestrator
+│   ├── demand_supply_tools.py     # 6 tools: distance, supply chain, prices, capacity, weather
+│   ├── health_tools.py            # 7 tools: runtime, sensors, health score, maintenance scheduler
+│   ├── transmission_tools.py      # 7 tools: line data, loss calc, load balancing, flagging
+│   └── orchestrator_tools.py      # 4 tools: system summary, conflict resolver, reward, next state
+│
 ├── database/
-│   └── db_setup.py               # SQLite schema + seeding
-└── rl_env/
-    └── power_grid_env.py         # Gymnasium env wrapper
+│   └── db_setup.py                # SQLite schema + auto-seed (6 plants, 6 lines)
+│
+├── rl_env/
+│   └── power_grid_env.py          # Gymnasium env wrapper with dynamic sensor perturbation
+│
+└── frontend/
+    ├── src/
+    │   ├── App.jsx                # Root layout + tab routing
+    │   └── components/
+    │       ├── CommandCenter.jsx  # Chat interface → /chat API
+    │       ├── AutonomousRL.jsx   # Live RL stream → /stream SSE
+    │       ├── PlantGrid.jsx      # Plant status cards → /plants API
+    │       ├── GridMap.jsx        # Leaflet map of plant locations
+    │       ├── StrategicIntel.jsx # Parsed report viewer
+    │       ├── MemoryLog.jsx      # Decision + signal history
+    │       └── Sidebar.jsx        # Navigation
+    └── package.json
 ```
+
+---
 
 ## Setup
 
+### Prerequisites
+
+- Python 3.10+
+- Node.js 18+
+- API keys: Google Gemini, Groq, Tavily
+
+### 1. Clone and install Python dependencies
+
 ```bash
-# 1. Clone / copy files
+git clone <repo-url>
 cd power_grid_ai
 
-# 2. Create virtual environment
 python -m venv venv
-source venv/bin/activate       # Linux/Mac
-venv\Scripts\activate          # Windows
+source venv/bin/activate        # Linux / macOS
+venv\Scripts\activate           # Windows
 
-# 3. Install dependencies
 pip install -r requirements.txt
-
-# 4. Set API keys
-cp .env.example .env
-# Edit .env and add your keys:
-#   ANTHROPIC_API_KEY=sk-ant-...
-#   TAVILY_API_KEY=tvly-...
-
-# 5. Run
-python main.py          # balanced mode (default)
-python main.py 0        # conservative
-python main.py 2        # aggressive
 ```
 
-## Agents
+### 2. Configure environment variables
 
-| Agent | Purpose | Tools |
-|---|---|---|
-| Main Orchestrator | Controls everything, resolves conflicts | system snapshot, conflict resolver, reward, next state |
-| Demand & Supply | Decide inc/dec production per plant | distance, supply chain, prices, capacity, weather |
-| Plant Health | Monitor and schedule maintenance | runtime, sensors, health score, sqlite scheduler |
-| Transmission | Line efficiency and load balancing | line data, loss calc, balancing, flag inspection |
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+
+```env
+# Gemini — supports comma-separated keys for automatic rotation
+GOOGLE_API_KEY=your_key_1,your_key_2,your_key_3
+GEMINI_MODEL=gemini-2.0-flash
+GEMINI_MODEL_FALLBACK=gemini-1.5-flash
+
+# Groq — used by orchestrator (separate quota, never exhausted by demand agent)
+GROQ_API_KEY=gsk_...
+GROQ_MODEL=llama-3.1-8b-instant
+
+# Tavily — used for real-time weather lookups
+TAVILY_API_KEY=tvly-...
+```
+
+### 3. Run the CLI pipeline
+
+```bash
+python main.py        # balanced mode (default)
+python main.py 0      # conservative — prioritize maintenance
+python main.py 1      # balanced — standard operation
+python main.py 2      # aggressive — maximize output
+```
+
+### 4. Run the backend API
+
+```bash
+uvicorn server:app --reload --port 8000
+```
+
+### 5. Run the frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`
+
+---
 
 ## RL Environment
 
-**Observation** (6 floats, normalized 0-1):
-- avg_capacity, avg_efficiency, plant_health_ratio, degraded_lines_ratio, total_capacity, demand_forecast
+`PowerGridEnv` is a fully Gymnasium-compatible environment. Each `step()` call runs the complete LangGraph pipeline and returns a standard `(obs, reward, terminated, truncated, info)` tuple.
 
-**Action** (Discrete 3):
-- `0` = conservative → prioritize maintenance
-- `1` = balanced → standard operation
-- `2` = aggressive → maximize output
+### Observation Space — 6 floats, normalized [0, 1]
 
-**Future RL training with stable-baselines3:**
+| Index | Feature | Description |
+|---|---|---|
+| 0 | `avg_capacity_norm` | Average output across all plants |
+| 1 | `avg_efficiency_norm` | Average transmission line efficiency |
+| 2 | `plant_health_ratio` | Fraction of plants with no urgent faults |
+| 3 | `degraded_lines_ratio` | Fraction of lines flagged or critical |
+| 4 | `total_capacity_norm` | Total MW output normalized to 2500 MW |
+| 5 | `demand_forecast_norm` | Normalized demand forecast signal |
+
+### Action Space — Discrete(3)
+
+| Action | Label | Behavior |
+|---|---|---|
+| `0` | conservative | Prioritize maintenance, reduce risky plant loads |
+| `1` | balanced | Standard operation |
+| `2` | aggressive | Maximize output, defer non-critical maintenance |
+
+### Reward Function
+
+| Condition | Reward |
+|---|---|
+| Plant fault_count < 3 | +1.0 |
+| Plant maintenance_status = urgent | −1.0 |
+| Transmission line loss < 10% | +0.5 |
+| Line status = critical or flagged | −0.5 |
+
+### Future RL Training
+
 ```python
 from stable_baselines3 import PPO
+from stable_baselines3.common.env_checker import check_env
 from rl_env.power_grid_env import PowerGridEnv
 
 env = PowerGridEnv(max_steps=20)
-model = PPO("MlpPolicy", env, verbose=1)
+check_env(env)
+
+model = PPO("MlpPolicy", env, verbose=1, n_steps=64, batch_size=32)
 model.learn(total_timesteps=10000)
+model.save("power_grid_ppo_policy")
 ```
+
+---
+
+## API Reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/health` | Backend health check |
+| POST | `/chat` | Run full pipeline with a natural language query |
+| GET | `/plants` | All plant data with coordinates |
+| GET | `/stream` | SSE stream of live RL episode steps |
+| POST | `/start` | Initialize a new RL episode |
+| POST | `/stop` | Terminate the current RL episode |
+| GET | `/memory/decisions` | Recent orchestrator decisions |
+| GET | `/memory/signals` | Recent weather and commodity signals |
+
+### Example `/chat` request
+
+```json
+POST /chat
+{
+  "message": "Cyclone warning in Chennai — assess southern grid stability",
+  "rl_action": 0
+}
+```
+
+---
+
+## Agents & Tools
+
+### Demand & Supply Agent (Gemini)
+Analyzes demand vs. supply and recommends per-plant output changes.
+
+| Tool | Description |
+|---|---|
+| `get_plant_capacity_tool` | Current output and max capacity per plant |
+| `get_regional_demand_forecast_tool` | 24h demand forecast per zone |
+| `get_supply_chain_status_tool` | Disruption index per fuel type |
+| `get_raw_material_prices_tool` | Live prices for coal, gas, uranium, silicon |
+| `get_distance_tool` | Transmission distance between plant and zone |
+| `get_weather_impact_tool` | Real-time weather via Tavily → demand impact factor |
+
+### Plant Health Agent (Pure Python)
+Computes health scores and auto-schedules maintenance without any LLM calls.
+
+| Tool | Description |
+|---|---|
+| `get_plant_runtime_tool` | Runtime hours, fault count, last maintenance |
+| `get_plant_sensor_data_tool` | Vibration index, temperature, capacity % |
+| `calculate_health_score_tool` | Composite 0–100 score + risk level |
+| `schedule_maintenance_tool` | Writes to SQLite maintenance_log |
+| `get_maintenance_schedule_tool` | All upcoming scheduled maintenances |
+| `get_plants_needing_maintenance_tool` | Plants with score < 60 or urgent status |
+| `get_all_plants_health_tool` | Full system health overview |
+
+### Transmission Agent (Pure Python)
+Evaluates line efficiency and recommends load shifts without any LLM calls.
+
+| Tool | Description |
+|---|---|
+| `get_transmission_line_data_tool` | Full line record from database |
+| `get_all_transmission_lines_tool` | All six lines at once |
+| `calculate_transmission_loss_tool` | Power loss MW + efficiency score |
+| `get_line_distance_consumption_ratio_tool` | MW/km ratio vs 0.8 benchmark |
+| `recommend_load_balancing_tool` | Shift recommendations per demand zone |
+| `flag_line_for_inspection_tool` | Writes flag to SQLite + updates status |
+| `get_flagged_lines_tool` | All pending inspection flags |
+
+### Main Orchestrator (Groq)
+Resolves conflicts between agent recommendations and computes RL signals.
+
+| Tool | Description |
+|---|---|
+| `get_system_summary_tool` | Full snapshot of all plants and lines |
+| `resolve_conflicts_tool` | Applies policy rules to reconcile agent outputs |
+| `compute_reward_tool` | Calculates scalar reward from database state |
+| `compute_next_state_tool` | Returns normalized 6-float observation vector |
+
+---
+
+## Key Design Decisions
+
+**Gemini key rotation** — The `GeminiKeyRotator` supports comma-separated keys in `GOOGLE_API_KEY` and automatically rotates on 429 rate-limit errors with per-key cooldown tracking. This keeps the demand agent running across long RL episodes.
+
+**Groq for orchestrator** — The orchestrator uses a separate Groq quota so it never competes with the demand agent for Gemini rate limits.
+
+**Zero-API health and transmission agents** — Both agents run as pure Python against SQLite, making them instant and free. Only the demand agent (needs real-time reasoning) and orchestrator (needs conflict resolution) use LLMs.
+
+**Dynamic sensor perturbation** — Each RL `step()` applies small random noise to plant vibration, temperature, and capacity readings before running the pipeline, simulating real-world sensor drift.
+
+---
+
+## Database Schema
+
+```sql
+plant_health          -- 6 plants: sensor readings, runtime, fault count, maintenance status
+maintenance_log       -- scheduled and completed maintenance events
+transmission_lines    -- 6 lines: load, loss %, efficiency, status
+transmission_inspections -- flagged lines pending inspection
+```
+
+The database is auto-created and seeded on first run via `setup_database()`.
+
+---
+
+## Frontend Views
+
+| Tab | Component | Description |
+|---|---|---|
+| Dashboard | `App.jsx` | KPI belt, Leaflet map, incident feed |
+| Control | `CommandCenter.jsx` | Chat interface with full pipeline response |
+| Autonomous RL | `AutonomousRL.jsx` | Live SSE stream of RL episode steps |
+| Strategic Intel | `StrategicIntel.jsx` | Parsed orchestrator report viewer |
+| Plants | `PlantGrid.jsx` | Plant cards with live MW and health data |
+| Memory | `MemoryLog.jsx` | Decision history and signal log |
+
+---
+
+## License
+
+MIT
